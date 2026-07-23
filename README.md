@@ -6,12 +6,12 @@
 built-in `http` module. It binds to `127.0.0.1:3000` and answers the ordinary HTTP
 requests delivered to its request handler — any such method, on any path — with
 `200 OK` and the plain-text body `Hello, World!\n`. Two methods differ at the wire
-level: `HEAD` receives the same status and headers but no body, and `CONNECT` is not
+level: `HEAD` receives the same `200` status and `Content-Type` but no body (Node also omits the generated `Content-Length` header), and `CONNECT` is not
 delivered to the handler at all (see [Protocol-level nuances](#protocol-level-nuances)).
 There are no third-party dependencies, no build step, and no external runtime
 configuration mechanism, environment override, or app-specific config file — the entire
 runtime is one source file, `server.js`.
-_(Source: server.js:1-20, 29, 34, 60-67, 77-79; package.json:1-11; package-lock.json:1-13)_
+_(Source: server.js:1-22, 31, 36, 81-88, 96-98; package.json:1-11; package-lock.json:1-13)_
 
 ---
 
@@ -35,23 +35,23 @@ _(Source: server.js:1-20, 29, 34, 60-67, 77-79; package.json:1-11; package-lock.
 `hello_world` is an intentionally minimal Node.js "Hello, World!" HTTP fixture. Its
 whole implementation is the single file `server.js`, which uses only the Node.js
 standard-library `http` module and therefore ships with **zero third-party
-dependencies**. _(Source: server.js:1-20; package.json:1-11; package-lock.json:1-13)_
+dependencies**. _(Source: server.js:1-22; package.json:1-11; package-lock.json:1-13)_
 
 It is useful as a generic fixed-response smoke-test target or as a teaching example of
 the raw Node.js `http` API. It is **not** a container image and defines **no** dedicated
 health-check route or container/orchestration integration — it simply returns the same
 fixed response to every ordinary request. The module **exports nothing** — it is not
 meant to be `require`-d as a library; loading the file simply creates and starts the
-server as a side effect. _(Source: server.js:5-17, 60-67)_
+server as a side effect. _(Source: server.js:4-19, 81-88)_
 
 The runtime is organized around four small features (identifiers reused throughout this
 document for consistency):
 
 | ID | Feature | Description | Source |
 |------|-----------------------------|--------------------------------------------------------------------------------|-----------------------------------------|
-| F-001 | HTTP Server / Listener | Creates an `http.Server` and binds it to `127.0.0.1:3000`. | server.js:60, 77-79 |
-| F-002 | Request Handler | A single catch-all callback: every ordinary request delivered to it (any method, any path) gets `200` + `text/plain` + `Hello, World!\n`; `HEAD` sends no body and `CONNECT` is never delivered (see nuances). | server.js:39-54, 60-67 |
-| F-003 | Startup Logger | Logs `Server running at http://127.0.0.1:3000/` once the server is listening. | server.js:77-79 |
+| F-001 | HTTP Server / Listener | Creates an `http.Server` and binds it to `127.0.0.1:3000`. | server.js:81, 96-98 |
+| F-002 | Request Handler | A single catch-all callback: every ordinary request delivered to it (any method, any path) gets `200` + `text/plain` + `Hello, World!\n`; `HEAD` sends no body and `CONNECT` is never delivered (see nuances). | server.js:41-57, 81-88 |
+| F-003 | Startup Logger | Logs `Server running at http://127.0.0.1:3000/` once the server is listening. | server.js:96-98 |
 | F-004 | Package Manifest & Lockfile | `package.json` + `package-lock.json` declaring zero dependencies. | package.json:1-11; package-lock.json:1-13 |
 
 ---
@@ -59,7 +59,7 @@ document for consistency):
 ## Prerequisites
 
 - **Node.js** — any currently supported Node.js release. The server uses only the
-  long-stable standard-library `http` module _(Source: server.js:21)_, so no newer
+  long-stable standard-library `http` module _(Source: server.js:23)_, so no newer
   language or runtime features are required; consult the official Node.js releases page
   (<https://nodejs.org>) for the release lines still supported at the time you install.
   This project was validated locally on **Node.js v22.23.1 on 2026-07-23**
@@ -104,7 +104,7 @@ installs no packages (npm may still read and process `package.json`/`package-loc
 npm is not needed to run the server.
 
 **There is no build step.** The source in `server.js` runs as-is under Node.js
-_(Source: server.js:1-79)_.
+_(Source: server.js:1-98)_.
 
 ---
 
@@ -116,14 +116,19 @@ Start the server directly with Node.js:
 node server.js
 ```
 
-> **Use `node server.js`, not `npm start`.** There is **no `start` script** in
-> `package.json` _(Source: package.json:6-8)_, and the manifest's `main` field points at
+> **The documented run command is `node server.js`.** The `scripts` block in
+> `package.json` declares **no explicit `start` script**; it defines only a placeholder
+> `test` script _(Source: package.json:6-8)_. npm nonetheless provides a built-in
+> default: because a `server.js` file exists in the project root, running `npm start`
+> implicitly executes `node server.js` and serves the same response _(Source: verified at
+> runtime)_. This document uses `node server.js` as the explicit, unambiguous command and
+> does **not** add a `start` script. Separately, the manifest's `main` field points at
 > `index.js` _(Source: package.json:5)_, which **does not exist** in this repository
-> _(Source: repository file listing; see [Project Structure](#project-structure))_. Run
-> the file by name.
+> _(Source: repository file listing; see [Project Structure](#project-structure))_; that
+> affects only `require('hello_world')` resolution, not running the file by name.
 
 Once the server is listening, it prints exactly the following line to stdout
-_(Source: server.js:77-79; verified at runtime)_:
+_(Source: server.js:96-98; verified at runtime)_:
 
 ```text
 Server running at http://127.0.0.1:3000/
@@ -147,7 +152,7 @@ sequenceDiagram
     Node-->>Operator: log Server running at http://127.0.0.1:3000/
 ```
 
-Startup sequence derived from `server.js`. _(Source: server.js:21, 60, 77-79)_
+Startup sequence derived from `server.js`. _(Source: server.js:23, 81, 96-98)_
 
 ---
 
@@ -156,11 +161,11 @@ Startup sequence derived from `server.js`. _(Source: server.js:21, 60, 77-79)_
 The server exposes a **single catch-all endpoint**. It performs **no routing** and does
 **not** inspect the request method or path: every ordinary request delivered to the
 request handler — any method, on any path — receives the identical response.
-_(Source: server.js:39-44, 60-67)_ Two methods differ at the wire level and are covered
+_(Source: server.js:41-46, 81-88)_ Two methods differ at the wire level and are covered
 under [Protocol-level nuances](#protocol-level-nuances) below: `HEAD` (no response body)
 and `CONNECT` (not delivered to the handler). There is **no authentication** and **no
 external runtime configuration mechanism, environment override, or app-specific config
-file**; the behavior is fully deterministic. _(Source: server.js:39-54)_
+file**; the behavior is fully deterministic. _(Source: server.js:41-57)_
 
 ### Endpoint contract
 
@@ -174,9 +179,9 @@ handler. `HEAD` and `CONNECT` behave differently at the wire level — see
 | Path | ANY (`/`, `/anything/else`, `/foo`, …) |
 | Status | `200 OK` |
 | `Content-Type` | `text/plain` |
-| Body | `Hello, World!\n` (14 bytes) for methods that carry a body; for `HEAD`, the same status/headers are sent with an empty body |
+| Body | `Hello, World!\n` (14 bytes) for methods that carry a body; for `HEAD`, the same `200` status and `Content-Type` are sent with an empty body (Node omits the generated `Content-Length` header) |
 
-Contract verified against the running server and `server.js`. _(Source: server.js:39-54, 60-67; verified at runtime for GET, POST, DELETE, OPTIONS, HEAD, and CONNECT)_
+Contract verified against the running server and `server.js`. _(Source: server.js:41-57, 81-88; verified at runtime for GET, POST, DELETE, OPTIONS, HEAD, and CONNECT)_
 
 ### Example
 
@@ -202,7 +207,7 @@ Hello, World!
 The **same** response is returned for any path and for any ordinary method delivered to
 the request handler. For example, both of the following return the identical `200` /
 `text/plain` / `Hello, World!\n` response
-_(Source: verified at runtime; server.js:39-44, 60-67)_:
+_(Source: verified at runtime; server.js:41-46, 81-88)_:
 
 ```bash
 curl -i -X POST http://127.0.0.1:3000/anything/else
@@ -213,10 +218,10 @@ curl -i -X DELETE http://127.0.0.1:3000/foo
 [Protocol-level nuances](#protocol-level-nuances).
 
 The application itself sets only the status code and the `Content-Type` header
-_(Source: server.js:62-64)_. The `Date`, `Connection`, `Keep-Alive`, and `Content-Length`
+_(Source: server.js:83-85)_. The `Date`, `Connection`, `Keep-Alive`, and `Content-Length`
 headers are **not** set anywhere in `server.js`; they were emitted by the Node.js `http`
 runtime in the verified `curl -i` response shown above
-_(Source: verified at runtime; server.js:60-67 sets no such headers)_.
+_(Source: verified at runtime; server.js:81-88 sets no such headers)_.
 
 ### Request / response flow
 
@@ -231,25 +236,26 @@ flowchart LR
     D --> E["Content-Type: text/plain"]
     E --> F["res.end('Hello, World!\n')"]
     F -->|GET, POST, etc - full 14-byte body| A
-    F -.->|HEAD - same headers, Node omits body| A
+    F -.->|HEAD - same status + Content-Type, no body or Content-Length| A
 ```
 
 Flow derived from `server.js`; the `HEAD` and `CONNECT` branches were confirmed at
-runtime. _(Source: server.js:39-54, 60-67; verified at runtime)_
+runtime. _(Source: server.js:41-57, 81-88; verified at runtime)_
 
 ### Protocol-level nuances
 
 Two HTTP methods differ at the wire level. This is **standard Node.js behavior, not
-application logic** _(Source: server.js:36-59)_:
+application logic** _(Source: server.js:38-63)_:
 
-- **`HEAD`** — the handler still runs and sets the same `200` / `text/plain` headers, but
-  Node omits the body from a `HEAD` response (a `HEAD` response must not carry a body), so
-  the client receives **zero body bytes**.
-  _(Source: server.js:48-50; verified at runtime — `size_download=0`)_
+- **`HEAD`** — the handler still runs and sets the same application-set `200` status and
+  `Content-Type: text/plain` header, but Node suppresses the body from a `HEAD` response (a
+  `HEAD` response must not carry a body) and omits the generated `Content-Length` header, so
+  the client receives **zero body bytes** and no `Content-Length`.
+  _(Source: server.js:50-53; verified at runtime — `Content-Length` absent and `size_download=0`)_
 - **`CONNECT`** — Node dispatches `CONNECT` requests to the server's separate `connect`
   event rather than to the `request` handler. No `connect` listener is registered, so the
   handler never runs for `CONNECT` and the client receives **no response**.
-  _(Source: server.js:51-54)_
+  _(Source: server.js:54-57)_
 
 ---
 
@@ -262,26 +268,26 @@ node server.js
 ```
 
 **Binding is loopback-only.** The server binds to the loopback address `127.0.0.1` on port
-`3000` _(Source: server.js:29, 34, 77-79)_, so it is reachable **only from the local
+`3000` _(Source: server.js:31, 36, 96-98)_, so it is reachable **only from the local
 machine**. To accept connections from other hosts, change the `hostname` constant to
-`0.0.0.0` (all interfaces) or a specific interface address _(Source: server.js:29)_.
+`0.0.0.0` (all interfaces) or a specific interface address _(Source: server.js:31)_.
 Exposing a service publicly commonly also involves fronting it with a reverse proxy for
 TLS termination and routing; the choice of proxy and its configuration are outside this
 repository and are neither provided nor verified here.
 
 **Changing the host / port.** Host and port are hardcoded module constants
-_(Source: server.js:29, 34)_, and the source reads no environment variable or config file
+_(Source: server.js:31, 36)_, and the source reads no environment variable or config file
 for them — the entire runtime is `server.js`, which contains no such lookup
-_(Source: server.js:1-79)_. To change either value, edit the corresponding constant in
+_(Source: server.js:1-98)_. To change either value, edit the corresponding constant in
 `server.js` directly:
 
 | Constant | Value | Source | To change |
 |------------|---------------|----------------|-------------------------------------------------------|
-| `hostname` | `'127.0.0.1'` | server.js:29 | Edit the constant (e.g. `'0.0.0.0'` to expose externally) |
-| `port` | `3000` | server.js:34 | Edit the constant |
+| `hostname` | `'127.0.0.1'` | server.js:31 | Edit the constant (e.g. `'0.0.0.0'` to expose externally) |
+| `port` | `3000` | server.js:36 | Edit the constant |
 
 **Process management.** The process runs in the foreground and does not daemonize itself
-_(Source: server.js:77-79)_. For production-style uptime, run it under a process
+_(Source: server.js:96-98)_. For production-style uptime, run it under a process
 supervisor so it restarts on crash or reboot. Any general-purpose process manager or
 service supervisor works; such tools are **not** part of this repository, are not declared
 as dependencies, and must be installed and configured separately. As one example, with
@@ -293,7 +299,7 @@ pm2 start server.js --name hello_world
 
 **Fail-fast (no error handling).** `server.js` registers no `error` event handler on the
 server and performs no graceful shutdown — the file contains no `.on('error', …)` or
-signal handling _(Source: server.js:1-79)_. By Node.js's default behavior, a server
+signal handling _(Source: server.js:1-98)_. By Node.js's default behavior, a server
 `'error'` event with no listener is thrown as an uncaught exception; a bind failure such
 as `EADDRINUSE` when port `3000` is already in use therefore terminates the process.
 Ensure the port is free before starting. See
@@ -307,7 +313,7 @@ The entire runtime is `server.js`. Every executable element carries a JSDoc bloc
 walkthrough below cross-references those annotations. Line numbers refer to the current
 `server.js` (with JSDoc included).
 
-**1. Import the `http` module** — _Source: server.js:21_
+**1. Import the `http` module** — _Source: server.js:23_
 
 ```js
 const http = require('http');
@@ -316,7 +322,7 @@ const http = require('http');
 Loads Node's built-in `http` module using CommonJS `require`. No third-party package is
 involved.
 
-**2. Configuration constants** — _Source: server.js:29, 34_
+**2. Configuration constants** — _Source: server.js:31, 36_
 
 ```js
 const hostname = '127.0.0.1';
@@ -324,10 +330,10 @@ const port = 3000;
 ```
 
 `hostname` is the loopback bind address and `port` is the TCP listen port. Both are
-annotated with `@constant` JSDoc _(Source: server.js:23-34)_. There is no override
+annotated with `@constant` JSDoc _(Source: server.js:25-36)_. There is no override
 mechanism — see the [Deployment Guide](#deployment-guide) for how to change them.
 
-**3. Create the server with a catch-all handler** — _Source: server.js:60-67_
+**3. Create the server with a catch-all handler** — _Source: server.js:81-88_
 
 ```js
 const server = http.createServer((req, res) => {
@@ -340,14 +346,14 @@ const server = http.createServer((req, res) => {
 `http.createServer` registers the request handler. For every ordinary request delivered
 to it, the handler does not inspect `req` at all — no method or path routing — and sets
 status `200`, the `text/plain` content type, and ends the response with the fixed 14-byte
-payload `Hello, World!\n` _(Source: server.js:60-67)_. Two methods are handled specially
-by Node itself, not by this code: `HEAD` produces the same status/headers with the body
-omitted, and `CONNECT` is routed to the `connect` event and never reaches this handler
-_(Source: server.js:39-54)_ — see [Protocol-level nuances](#protocol-level-nuances). Its
+payload `Hello, World!\n` _(Source: server.js:81-88)_. Two methods are handled specially
+by Node itself, not by this code: `HEAD` produces the same `200` status and `Content-Type` with the body
+and generated `Content-Length` omitted, and `CONNECT` is routed to the `connect` event and never reaches this handler
+_(Source: server.js:41-57)_ — see [Protocol-level nuances](#protocol-level-nuances). Its
 `@param` tags document the `http.IncomingMessage` and `http.ServerResponse` types
-_(Source: server.js:56-57)_.
+_(Source: server.js:60-61)_.
 
-**4. Start listening and log** — _Source: server.js:77-79_
+**4. Start listening and log** — _Source: server.js:96-98_
 
 ```js
 server.listen(port, hostname, () => {
@@ -367,7 +373,7 @@ The repository contains exactly four files and no subdirectories:
 
 | File | Role | Source |
 |--------------------|-------------------------------------------------------------------|-------------------------|
-| `server.js` | The HTTP server and de-facto entrypoint (F-001–F-003); the entire runtime. | server.js:1-79 |
+| `server.js` | The HTTP server and de-facto entrypoint (F-001–F-003); the entire runtime. | server.js:1-98 |
 | `package.json` | npm manifest — name, version, license, and scripts (F-004). | package.json:1-11 |
 | `package-lock.json` | npm lockfile (version 3) confirming zero dependencies (F-004). | package-lock.json:1-13 |
 | `README.md` | This document. | — |
@@ -390,10 +396,10 @@ These are **documented, not fixed** — they reflect the repository exactly as-i
    script _(Source: package.json:6-8)_.
 3. **No error handling / no graceful shutdown.** `server.js` installs no `error` event
    listener and no `SIGTERM`/`SIGINT` handler — no such code appears anywhere in the file
-   _(Source: server.js:1-79)_. By Node.js's default behavior an unhandled server `'error'`
+   _(Source: server.js:1-98)_. By Node.js's default behavior an unhandled server `'error'`
    (such as `EADDRINUSE`) is thrown and terminates the process; there is no graceful-
    shutdown path.
-4. **Loopback-only binding.** The server binds `127.0.0.1` _(Source: server.js:29)_ and is
+4. **Loopback-only binding.** The server binds `127.0.0.1` _(Source: server.js:31)_ and is
    unreachable from other hosts until the `hostname` constant is changed — see the
    [Deployment Guide](#deployment-guide).
 
